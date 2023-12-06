@@ -1,0 +1,108 @@
+{% extends 'base.html'%}{%block content%}
+<main
+  class="w-full p-6 sm:px-48 sm:py-32 mx-auto min-h-screen flex flex-col items-center justify-start"
+>
+  <div class="relative w-full max-w-[768px]">
+    <div>
+      <div class="room-name">
+        <span class="font-bold">Connected as:</span> {{name}}
+      </div>
+      <div class="room-code"><span class="font-bold">Room:</span> {{room}}</div>
+    </div>
+    <aside class="hidden fixed sm:flex left-[80%] sm:flex-col p-4 bg-white/20">
+      {% for member in members %}
+      <div class="flex items-center gap-2">
+        <div class="rounded-full bg-white/20 p-2">
+          <i class="fas fa-user text-white"></i>
+        </div>
+        <span class="font-bold">{{member}}</span>
+      </div>
+      {% endfor%}
+    </aside>
+    <div
+      id="messages"
+      class="h-[50vh] my-4 rounded-lg overflow-auto p-4 bg-white/[0.4] backdrop-blur-sm"
+    >
+      {% for message in messages %}
+      <div class="flex flex-col my-2">
+        <div class="flex justify-between mb-2">
+          <span class="font-bold">{{message.name}}:</span>
+
+          <span class="ms-auto">{{message.time}}</span>
+        </div>
+        <p>{{message.message}}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <form class="py-4 flex gap-2 w-full">
+      <input
+        type="text"
+        name="message"
+        class="border border-gray-300 rounded-md p-2 w-full"
+        placeholder="Enter your message"
+      />
+      <button
+        type="submit"
+        name="send"
+        class="p-2 bg-slate-900 shadow-lg w-min rounded-lg text-white whitespace-nowrap"
+        onclick="sendMessage(event)"
+      >
+        Send
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+  <script>
+    const socket = io();
+
+    const messages = document.getElementById("messages");
+    const createMessage = (name, msg, time) => {
+      const message = document.createElement("div");
+      message.classList.add("flex", "flex-col", "my-2");
+      const messageHeader = document.createElement("div");
+      messageHeader.classList.add("flex", "justify-between", "mb-2");
+      const messageName = document.createElement("span");
+      messageName.classList.add("font-bold");
+      messageName.innerText = name;
+      const messageTime = document.createElement("span");
+      messageTime.classList.add("ms-auto");
+      messageTime.innerText = time;
+      const messageBody = document.createElement("p");
+      messageBody.innerText = msg;
+      messageHeader.appendChild(messageName);
+      messageHeader.appendChild(messageTime);
+      message.appendChild(messageHeader);
+      message.appendChild(messageBody);
+      return message;
+    };
+    function sendMessage(e) {
+      e.preventDefault();
+      const form = e.target.form;
+      const message = form.message.value;
+      const name = "{{name}}";
+      const time = new Date().toLocaleTimeString();
+      socket.emit("send message", {
+        data: {
+          message: message,
+          name: name,
+          time,
+        },
+      });
+      form.message.value = "";
+    }
+    socket.on("receive message", function (data) {
+      console.log("received message :", data);
+      const message = createMessage(data.name, data.message, data.time);
+      messages.appendChild(message);
+      messages.scrollTop = messages.scrollHeight;
+    });
+    socket.on("message", function (data) {
+      let d = JSON.parse(data);
+      console.log("received message :", d);
+      const message = createMessage(d.data.name, d.data.message, d.data.time);
+      messages.appendChild(message);
+      messages.scrollTop = messages.scrollHeight;
+    });
+  </script>
+</main>
+{%endblock%}
