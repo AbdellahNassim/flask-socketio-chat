@@ -32,7 +32,10 @@ def home():
         if join is not False and not code:
             flash("Please enter a code")
             return render_template("home.html",name=name, code=code)
-        room = code 
+        room = code
+        conn = get_db_connection()
+        rooms = conn.execute("SELECT * FROM rooms").fetchall()
+        rooms = [room["code"] for room in rooms]
         if create is not False:
             room = generate_random_room_code()
             # rooms[room] = {
@@ -44,7 +47,7 @@ def home():
             conn.commit()
             conn.close()
             
-            
+        
         elif room not in rooms:
             flash("Room does not exist")
             return render_template("home.html",name=name,code=code)
@@ -97,6 +100,7 @@ def room():
     messages = [{"name": message["sender_name"], "message": message["message"], "time": message["created_at"]} for message in messages]
     members = conn.execute("SELECT * FROM members WHERE room_code = ?", (room,)).fetchall()
     members = [member["name"] for member in members]
+    print("Members: ", members)
     conn.close()
     return render_template("room.html", room=room, name=name,messages=messages,members=members)
 
@@ -114,8 +118,10 @@ def connect():
         return redirect(url_for("home"))
     
     join_room(room)
-    conn.execute("INSERT INTO members (room_code, name) VALUES (?, ?)", (room, name))
-    conn.commit()
+    member = conn.execute("SELECT * FROM members WHERE room_code = ? AND name = ?", (room, name)).fetchall()
+    if len(member) == 0:
+        conn.execute("INSERT INTO members (room_code, name) VALUES (?, ?)", (room, name))
+        conn.commit()
     conn.close()
     data =  {
         "data" : {"name" : name, "message" : "has entered the room.", 
@@ -135,6 +141,8 @@ def disconnect():
     conn = get_db_connection()
     rooms = conn.execute("SELECT * FROM rooms WHERE code = ?", (room,)).fetchall()
     if len(rooms) == 0:
+        conn.execute("DELETE FROM members WHERE room_code = ? AND name = ?", (room, name))
+        conn.commit()
         leave_room(room)
         return redirect(url_for("home"))
     leave_room(room)
